@@ -1,4 +1,4 @@
-# Thank-you Email Backend Setup
+﻿# Thank-you Email Backend Setup
 
 The customer thank-you email is handled by the secure backend route:
 
@@ -17,7 +17,7 @@ SMTP_PORT=465
 SMTP_USER=info@aarmoonsplit.com
 SMTP_PASS=YOUR_APP_PASSWORD_HERE
 ALLOWED_ORIGIN=https://aarmoonspirit.com,https://aar-moon-split-tradres.vercel.app
-GOOGLE_SHEET_WEB_APP_URL=https://script.google.com/macros/s/AKfycbzdWZxwHb6A-3HEFMugfIjZLAFexwhzqqMFu6r_tgNo3tyShxgdtGsPRUrkUIFMD0TkPA/exec
+GOOGLE_SHEET_WEB_APP_URL=https://script.google.com/macros/s/AKfycbxTOM5uefDkMWXoFsJXrzHoMeBdPHuI4_Q-kUYnqSQ8CRliPQq_O1oHHicxIXZiCAqaaQ/exec
 ```
 
 Do not put `SMTP_PASS` in frontend JavaScript, HTML, or CSS.
