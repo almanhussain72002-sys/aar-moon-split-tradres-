@@ -6,12 +6,14 @@ function doPost(e) {
     const data = parseRequestBody_(e);
 
     sheet.appendRow([
-      new Date(),
+      clean_(data.timestamp) || new Date(),
       clean_(data.name),
-      clean_(data.phone),
-      clean_(data.email),
       clean_(data.company),
-      clean_(data.service || data.product),
+      clean_(data.email),
+      clean_(data.phone),
+      clean_(data.country),
+      clean_(data.product),
+      clean_(data.quantity),
       clean_(data.message)
     ]);
 
@@ -46,10 +48,12 @@ function getInquirySheet_() {
     sheet.appendRow([
       "Timestamp",
       "Name",
-      "Phone",
-      "Email",
       "Company",
-      "Service",
+      "Email",
+      "Phone",
+      "Country",
+      "Product",
+      "Quantity",
       "Message"
     ]);
   }

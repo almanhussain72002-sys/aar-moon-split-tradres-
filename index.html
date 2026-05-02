@@ -132,11 +132,14 @@
               <input type="text" name="website" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true">
               <input type="hidden" name="formStartedAt" value="">
               <div class="field"><label>Name <span>*</span></label><input type="text" name="name" required><small class="field-error" data-error-for="name"></small></div>
+              <div class="field"><label>Company Name</label><input type="text" name="company"><small class="field-error" data-error-for="company"></small></div>
               <div class="field-grid">
                 <div class="field"><label>Phone <span>*</span></label><input type="text" name="phone" required><small class="field-error" data-error-for="phone"></small></div>
                 <div class="field"><label>Email <span>*</span></label><input type="email" name="email" required><small class="field-error" data-error-for="email"></small></div>
               </div>
+              <div class="field"><label>Country <span>*</span></label><input type="text" name="country" required><small class="field-error" data-error-for="country"></small></div>
               <div class="field"><label>Product <span>*</span></label><select name="product" required><option value="">Select product</option><option value="Coffee">Coffee</option><option value="Spices">Spices</option><option value="Vegetables">Vegetables</option><option value="Fruits">Fruits</option></select><small class="field-error" data-error-for="product"></small></div>
+              <div class="field"><label>Quantity Required</label><input type="text" name="quantity" placeholder="Example: 500 kg, 1 container, 25kg bags"><small class="field-error" data-error-for="quantity"></small></div>
               <div class="field"><label>Message</label><textarea name="message" placeholder="Mention quantity, destination country, and packaging needs."></textarea><small class="field-error" data-error-for="message"></small></div>
               <button class="btn btn-primary" type="submit" data-loading-label="Submitting...">Submit Inquiry</button>
               <div class="form-status" aria-live="polite"></div>

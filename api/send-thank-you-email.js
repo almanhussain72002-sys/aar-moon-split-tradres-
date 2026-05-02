@@ -40,6 +40,26 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(email || "").trim());
 }
 
+function clean(value) {
+  return String(value || "").trim();
+}
+
+function normalizeInquiryData(body) {
+  const timestamp = new Date().toISOString();
+
+  return {
+    timestamp,
+    name: clean(body.name || body.fullName || body.full_name),
+    company: clean(body.company || body.companyName || body.company_name),
+    email: clean(body.email || body.emailAddress || body.email_address),
+    phone: clean(body.phone || body.whatsapp || body.phoneNumber || body.phone_number),
+    country: clean(body.country),
+    product: clean(body.product || body.productInterest || body.product_interest),
+    quantity: clean(body.quantity || body.quantityRequired || body.quantity_required),
+    message: clean(body.message)
+  };
+}
+
 function getMissingEnvVars() {
   return [
     "SMTP_HOST",
@@ -69,13 +89,13 @@ Email: ${process.env.EMAIL_FROM}
 `;
 }
 
-async function sendToGoogleSheet(formData) {
+async function sendToGoogleSheet(normalizedData) {
   const response = await fetch(process.env.GOOGLE_SHEET_WEB_APP_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify(formData)
+    body: JSON.stringify(normalizedData)
   });
 
   const responseText = await response.text();
@@ -97,7 +117,9 @@ async function sendToGoogleSheet(formData) {
   }
 }
 
-async function sendCustomerEmail(formData) {
+async function sendCustomerEmail(normalizedData) {
+  console.log("[Inquiry API] Email sending starts");
+
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT || 465),
@@ -110,10 +132,12 @@ async function sendCustomerEmail(formData) {
 
   await transporter.sendMail({
     from: `"AAR Moon Spirit Traders" <${process.env.EMAIL_FROM}>`,
-    to: formData.email,
+    to: normalizedData.email,
     subject: EMAIL_SUBJECT,
-    text: buildEmailText(formData.name)
+    text: buildEmailText(normalizedData.name)
   });
+
+  console.log("[Inquiry API] Email sent successfully");
 }
 
 export default async function handler(req, res) {
@@ -141,23 +165,49 @@ export default async function handler(req, res) {
       throw new Error(`Missing environment variables: ${missingEnvVars.join(", ")}`);
     }
 
-    const formData = getJsonBody(req);
+    const body = getJsonBody(req);
+    console.log("[Inquiry API] Received body", body);
 
-    if (!formData.name || !formData.phone || !formData.product) {
+    const normalizedData = normalizeInquiryData(body);
+    console.log("[Inquiry API] Normalized form data", normalizedData);
+
+    if (!normalizedData.name || !normalizedData.phone || !normalizedData.product) {
       throw new Error("Name, phone, and product are required");
     }
 
-    if (!isValidEmail(formData.email)) {
+    if (!isValidEmail(normalizedData.email)) {
       throw new Error("A valid customer email is required");
     }
 
-    await sendToGoogleSheet(formData);
+    let sheetSaved = false;
+    let emailSent = false;
+
+    await sendToGoogleSheet(normalizedData);
+    sheetSaved = true;
     console.log("[Inquiry API] Google Sheet success");
 
     console.log("[Inquiry API] Sending email");
-    await sendCustomerEmail(formData);
+    try {
+      await sendCustomerEmail(normalizedData);
+      emailSent = true;
+    } catch (error) {
+      console.error("[Inquiry API] Error", {
+        message: error.message
+      });
 
-    return res.status(200).json({ success: true });
+      return res.status(500).json({
+        success: false,
+        sheetSaved,
+        emailSent,
+        error: error.message || "Email sending failed"
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      sheetSaved,
+      emailSent
+    });
   } catch (error) {
     console.error("[Inquiry API] Error", {
       message: error.message
