@@ -1,0 +1,16 @@
+{
+  "name": "aar-moon-spirit-traders-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AAR Moon Spirit Traders export business website with inquiry email API.",
+  "scripts": {
+    "start": "vercel dev",
+    "check": "node --check api/send-thank-you-email.js"
+  },
+  "dependencies": {
+    "nodemailer": "^6.9.16"
+  },
+  "devDependencies": {
+    "vercel": "^37.0.0"
+  }
+}

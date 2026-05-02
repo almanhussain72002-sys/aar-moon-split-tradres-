@@ -1,15 +1,19 @@
 const INQUIRY_CONFIG = {
-  whatsappNumber: "917353842099",
-  sheetsEndpoint: "https://script.google.com/macros/s/AKfycbz2GN_c_XYsqR7gnAblr2ICD2RMTy0h4MxvJwyDxAFmCiP6XtTKzxPo6rwMchA4Aj8nMw/exec"
-};
-
-const PHONE_INPUT_CONFIG = {
-  onlyCountries: ["in", "ae", "sa", "om", "qa", "kw", "us", "gb"],
-  countryOrder: ["ae", "sa", "om", "qa", "kw", "us", "gb", "in"],
-  initialCountry: "ae"
+  sheetsEndpoint: "https://script.google.com/macros/s/AKfycbzdWZxwHb6A-3HEFMugfIjZLAFexwhzqqMFu6r_tgNo3tyShxgdtGsPRUrkUIFMD0TkPA/exec",
+  thankYouEmailEndpoint: "/api/send-thank-you-email",
+  successMessage: "Thank you! Your inquiry has been submitted successfully.",
+  errorMessage: "Something went wrong. Please try again."
 };
 
 document.addEventListener("DOMContentLoaded", () => {
+  initNavigation();
+  initAppleLandingNav();
+  initStandaloneInquiryPopup();
+  initScrollReveal();
+  initInquiryForms();
+});
+
+function initNavigation() {
   const header = document.querySelector(".site-header");
   const toggle = document.querySelector(".nav-toggle");
   const navLinks = document.querySelectorAll("[data-nav-close]");
@@ -27,204 +31,343 @@ document.addEventListener("DOMContentLoaded", () => {
       toggle?.setAttribute("aria-expanded", "false");
     });
   });
+}
 
+function initAppleLandingNav() {
+  const header = document.querySelector("[data-site-header]");
+  if (!header) return;
+
+  const keepSolid = document.body.classList.contains("export-site") && !document.querySelector(".export-hero");
+  const updateHeader = () => {
+    header.classList.toggle("is-scrolled", keepSolid || window.scrollY > 16);
+  };
+
+  updateHeader();
+  window.addEventListener("scroll", updateHeader, { passive: true });
+}
+
+function initScrollReveal() {
   const revealItems = document.querySelectorAll(".reveal");
-  if (revealItems.length) {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("is-visible");
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.18 }
-    );
+  if (!revealItems.length) return;
 
-    revealItems.forEach((item) => observer.observe(item));
-  }
-
-  // Inquiry forms submit to Google Sheets via Apps Script and can also open WhatsApp without reloading.
-  const forms = document.querySelectorAll("[data-inquiry-form]");
-  forms.forEach((form) => {
-    const status = form.querySelector(".form-status");
-    const whatsappButton = form.querySelector("[data-whatsapp-trigger]");
-    const submitButton = form.querySelector("[type='submit']");
-    const phoneInput = form.querySelector("[name='phone']");
-    const iti = initPhoneInput(phoneInput);
-
-    if (whatsappButton) {
-      whatsappButton.addEventListener("click", async () => {
-        const validation = await validateInquiryForm(form, iti);
-        if (!validation.valid) {
-          setStatus(status, validation.message, true);
-          return;
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
         }
-
-        window.open(buildWhatsAppUrl(validation.data), "_blank", "noopener");
       });
+    },
+    { threshold: 0.18 }
+  );
+
+  revealItems.forEach((item) => observer.observe(item));
+}
+
+function initStandaloneInquiryPopup() {
+  const path = window.location.pathname.split("/").pop().toLowerCase();
+  const isHomePage = path === "" || path === "index.html";
+  if (!isHomePage) return;
+  if (document.querySelector("[data-inquiry-popup]")) return;
+
+  const popup = document.createElement("div");
+  popup.className = "inquiry-popup inquiry-popup--glass";
+  popup.dataset.inquiryPopup = "";
+  popup.setAttribute("role", "dialog");
+  popup.setAttribute("aria-modal", "true");
+  popup.setAttribute("aria-labelledby", "inquiry-popup-title");
+  popup.innerHTML = `
+    <div class="inquiry-popup__overlay"></div>
+    <div class="inquiry-popup__panel" role="document">
+      <button class="inquiry-popup__close" type="button" aria-label="Close inquiry form" data-popup-close>&times;</button>
+      <div class="inquiry-popup__header">
+        <p>Import Inquiry</p>
+        <h2 id="inquiry-popup-title">Tell us what you want to import</h2>
+        <span>Share your requirement and our team will review it for coffee, spices, fruits, vegetables, coconut, or custom sourcing.</span>
+      </div>
+      <form class="inquiry-popup__form" data-inquiry-form data-popup-form novalidate>
+        <input type="text" name="website" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <input type="hidden" name="formStartedAt" value="">
+        <input type="hidden" name="source" value="Standalone inquiry popup">
+        <div class="popup-field-grid">
+          <div class="field"><label>Full Name <span>*</span></label><input type="text" name="name" autocomplete="name" required><small class="field-error" data-error-for="name"></small></div>
+          <div class="field"><label>Company Name</label><input type="text" name="company" autocomplete="organization"><small class="field-error" data-error-for="company"></small></div>
+        </div>
+        <div class="popup-field-grid">
+          <div class="field"><label>Email Address <span>*</span></label><input type="email" name="email" autocomplete="email" required><small class="field-error" data-error-for="email"></small></div>
+          <div class="field"><label>Phone / WhatsApp Number <span>*</span></label><input type="tel" name="phone" inputmode="tel" autocomplete="tel" required><small class="field-error" data-error-for="phone"></small></div>
+        </div>
+        <div class="popup-field-grid">
+          <div class="field"><label>Country <span>*</span></label><input type="text" name="country" autocomplete="country-name" required><small class="field-error" data-error-for="country"></small></div>
+          <div class="field"><label>Product Interest <span>*</span></label><select name="product" required><option value="">Select product</option><option value="Coffee">Coffee</option><option value="Spices">Spices</option><option value="Fruits">Fruits</option><option value="Vegetables">Vegetables</option><option value="Coconut">Coconut</option><option value="Other">Other</option></select><small class="field-error" data-error-for="product"></small></div>
+        </div>
+        <div class="field"><label>Quantity Required</label><input type="text" name="quantity" placeholder="Example: 500 kg, 1 container, 25kg bags"><small class="field-error" data-error-for="quantity"></small></div>
+        <div class="field"><label>Message</label><textarea name="message" placeholder="Mention destination country, product grade, packaging, timeline, or any special requirement."></textarea><small class="field-error" data-error-for="message"></small></div>
+        <button class="btn btn-primary inquiry-popup__submit" type="submit" data-loading-label="Submitting...">Submit Inquiry</button>
+        <div class="form-status" aria-live="polite"></div>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(popup);
+  document.body.classList.add("inquiry-popup-active");
+
+  requestAnimationFrame(() => {
+    popup.classList.add("is-open");
+    const firstInput = popup.querySelector('[name="name"]');
+    firstInput?.focus({ preventScroll: true });
+  });
+
+  const closePopup = () => {
+    popup.classList.remove("is-open");
+    document.body.classList.remove("inquiry-popup-active");
+    setTimeout(() => popup.remove(), 260);
+  };
+
+  popup.querySelectorAll("[data-popup-close]").forEach((control) => {
+    control.addEventListener("click", closePopup);
+  });
+
+  popup.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closePopup();
+    }
+  });
+
+  popup.addEventListener("inquiry:success", () => {
+    setTimeout(closePopup, 1400);
+  });
+}
+
+function initInquiryForms() {
+  const forms = document.querySelectorAll("form");
+
+  forms.forEach((form) => {
+    let startedAt = form.querySelector('[name="formStartedAt"]');
+    if (!startedAt) {
+      startedAt = document.createElement("input");
+      startedAt.type = "hidden";
+      startedAt.name = "formStartedAt";
+      form.prepend(startedAt);
     }
 
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const validation = await validateInquiryForm(form, iti);
+    if (!form.querySelector('[name="website"]')) {
+      const honeypot = document.createElement("input");
+      honeypot.type = "text";
+      honeypot.name = "website";
+      honeypot.className = "honeypot";
+      honeypot.tabIndex = -1;
+      honeypot.autocomplete = "off";
+      honeypot.setAttribute("aria-hidden", "true");
+      form.prepend(honeypot);
+    }
+
+    if (startedAt) {
+      startedAt.value = String(Date.now());
+    }
+
+    form.querySelectorAll("input, select, textarea").forEach((field) => {
+      field.addEventListener("input", () => {
+        clearFieldError(form, field.name);
+        setStatus(form, "", false);
+      });
+    });
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      const validation = validateInquiryForm(form);
       if (!validation.valid) {
-        setStatus(status, validation.message, true);
+        setStatus(form, validation.message, true);
         return;
       }
 
-      const inquiry = validation.data;
-      setStatus(status, "Sending your inquiry. Please wait...", false);
-      setFormBusy(submitButton, true);
-      if (whatsappButton) {
-        whatsappButton.disabled = true;
-      }
+      const submitButton = form.querySelector("[type='submit']");
+      const formData = new FormData(form);
+      const emailPayload = {
+        name: formData.get("name") || "",
+        email: formData.get("email") || ""
+      };
 
-      try {
-        await sendInquiryToGoogleSheets(inquiry);
-        setStatus(status, "Inquiry submitted successfully. Opening WhatsApp now...", false);
-        window.open(buildWhatsAppUrl(inquiry), "_blank", "noopener");
-        form.reset();
-        if (iti) {
-          iti.setCountry(PHONE_INPUT_CONFIG.initialCountry);
-        }
-        phoneInput?.focus();
-      } catch (error) {
-        setStatus(status, "We could not submit your inquiry right now. Please try again or use WhatsApp directly.", true);
-      } finally {
-        setFormBusy(submitButton, false);
-        if (whatsappButton) {
-          whatsappButton.disabled = false;
-        }
-      }
+      setButtonBusy(submitButton, true);
+      setStatus(form, "Submitting your inquiry...", false);
+
+      fetch(INQUIRY_CONFIG.sheetsEndpoint, {
+        method: "POST",
+        body: formData
+      })
+        .then((response) => response.text())
+        .then(() => sendThankYouEmail(emailPayload))
+        .then(() => {
+          form.reset();
+          setStatus(form, INQUIRY_CONFIG.successMessage, false);
+          form.dispatchEvent(new CustomEvent("inquiry:success", { bubbles: true }));
+
+          if (startedAt) {
+            startedAt.value = String(Date.now());
+          }
+        })
+        .catch(() => {
+          setStatus(form, INQUIRY_CONFIG.errorMessage, true);
+        })
+        .finally(() => {
+          setButtonBusy(submitButton, false);
+        });
     });
-  });
-});
-
-function initPhoneInput(input) {
-  if (!input || typeof window.intlTelInput !== "function") return null;
-
-  return window.intlTelInput(input, {
-    onlyCountries: PHONE_INPUT_CONFIG.onlyCountries,
-    countryOrder: PHONE_INPUT_CONFIG.countryOrder,
-    initialCountry: PHONE_INPUT_CONFIG.initialCountry,
-    separateDialCode: false,
-    strictMode: true,
-    formatAsYouType: true,
-    autoPlaceholder: "aggressive",
-    countrySearch: true,
-    loadUtils: () => import("https://cdn.jsdelivr.net/npm/intl-tel-input@25.12.1/dist/js/utils.js")
   });
 }
 
-async function validateInquiryForm(form, iti) {
-  const name = form.querySelector("[name='name']");
-  const email = form.querySelector("[name='email']");
-  const phone = form.querySelector("[name='phone']");
-  const country = form.querySelector("[name='country']");
-  const product = form.querySelector("[name='product']");
-  const quantity = form.querySelector("[name='quantity']");
-  const message = form.querySelector("[name='message']");
-
-  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-  if (!name?.value.trim()) {
-    return { valid: false, message: "Please enter your full name." };
-  }
-
-  if (!emailPattern.test(email?.value.trim() || "")) {
-    return { valid: false, message: "Please enter a valid email address." };
-  }
-
-  if (!phone?.value.trim()) {
-    return { valid: false, message: "Please enter your phone number." };
-  }
-
-  let phoneNumber = phone.value.trim();
-  if (iti) {
-    if (!iti.isValidNumber()) {
-      return { valid: false, message: "Please enter a valid international phone number." };
+function sendThankYouEmail(payload) {
+  return fetch(INQUIRY_CONFIG.thankYouEmailEndpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  }).then((response) => {
+    if (!response.ok) {
+      throw new Error("Thank-you email failed");
     }
-    phoneNumber = iti.getNumber();
-  } else if (!phoneNumber.startsWith("+")) {
-    return { valid: false, message: "Please enter a valid phone number with country code." };
+
+    return response.json();
+  });
+}
+
+function validateInquiryForm(form) {
+  clearFieldErrors(form);
+
+  const honeypot = getField(form, "website");
+  if (honeypot.value) {
+    return { valid: false, message: "Unable to submit this inquiry." };
   }
 
-  if (!country?.value.trim()) {
-    return { valid: false, message: "Please enter your country." };
+  const startedAt = Number(getField(form, "formStartedAt").value || 0);
+  if (startedAt && Date.now() - startedAt < 1200) {
+    return { valid: false, message: "Please wait a moment before submitting." };
   }
 
-  if (!product?.value.trim()) {
-    return { valid: false, message: "Please select the product you are interested in." };
+  const name = getField(form, "name");
+  const phone = getField(form, "phone");
+  const email = getField(form, "email");
+  const product = getField(form, "product");
+  const country = getField(form, "country");
+  let isValid = true;
+
+  if (!name.value) {
+    setFieldError(form, "name", "Name is required.");
+    isValid = false;
   }
 
-  if (!quantity?.value.trim()) {
-    return { valid: false, message: "Please enter the required quantity." };
+  if (!phone.value) {
+    setFieldError(form, "phone", "Phone is required.");
+    isValid = false;
+  } else if (!/^\+?[\d\s()-]{7,20}$/.test(phone.value)) {
+    setFieldError(form, "phone", "Enter a valid phone number.");
+    isValid = false;
   }
 
-  if ((message?.value.trim() || "").length < 12) {
-    return { valid: false, message: "Please enter a short message about your requirement." };
+  if (!email.value) {
+    setFieldError(form, "email", "Email is required.");
+    isValid = false;
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.value)) {
+    setFieldError(form, "email", "Enter a valid email address.");
+    isValid = false;
+  }
+
+  if (!product.value) {
+    setFieldError(form, "product", "Please select a product.");
+    isValid = false;
+  }
+
+  if (country.input && !country.value) {
+    setFieldError(form, "country", "Country is required.");
+    isValid = false;
   }
 
   return {
-      valid: true,
-      data: {
-        name: name.value.trim(),
-        email: email.value.trim(),
-        phone: phoneNumber,
-        country: country.value.trim(),
-        product: product.value.trim(),
-        quantity: quantity.value.trim(),
-        message: message.value.trim(),
-        page: window.location.pathname.split("/").pop() || "index.html",
-      submittedAt: new Date().toISOString()
-    }
+    valid: isValid,
+    message: isValid ? "" : "Please fix the highlighted fields."
   };
 }
 
-async function sendInquiryToGoogleSheets(inquiry) {
-  if (!INQUIRY_CONFIG.sheetsEndpoint || INQUIRY_CONFIG.sheetsEndpoint.includes("PASTE_YOUR")) {
-    throw new Error("Google Apps Script endpoint is not configured.");
+function getField(form, name) {
+  const input = form.querySelector(`[name="${name}"]`);
+  return {
+    input,
+    value: input ? input.value.trim() : ""
+  };
+}
+
+function setFieldError(form, name, message) {
+  const input = form.querySelector(`[name="${name}"]`);
+  const field = input?.closest(".field");
+  let error = form.querySelector(`[data-error-for="${name}"]`);
+
+  field?.classList.add("has-error");
+  input?.setAttribute("aria-invalid", "true");
+
+  if (!error && field) {
+    error = document.createElement("small");
+    error.className = "field-error";
+    error.dataset.errorFor = name;
+    field.appendChild(error);
   }
 
-  const payload = new URLSearchParams(inquiry);
-  const response = await fetch(INQUIRY_CONFIG.sheetsEndpoint, {
-    method: "POST",
-    mode: "no-cors",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: payload.toString()
+  if (error) {
+    error.textContent = message;
+  }
+}
+
+function clearFieldError(form, name) {
+  if (!name) return;
+
+  const input = form.querySelector(`[name="${name}"]`);
+  const field = input?.closest(".field");
+  const error = form.querySelector(`[data-error-for="${name}"]`);
+
+  field?.classList.remove("has-error");
+  input?.removeAttribute("aria-invalid");
+  if (error) {
+    error.textContent = "";
+  }
+}
+
+function clearFieldErrors(form) {
+  form.querySelectorAll(".field.has-error").forEach((field) => {
+    field.classList.remove("has-error");
   });
 
-  return response;
+  form.querySelectorAll("[aria-invalid='true']").forEach((field) => {
+    field.removeAttribute("aria-invalid");
+  });
+
+  form.querySelectorAll(".field-error").forEach((error) => {
+    error.textContent = "";
+  });
 }
 
-function buildWhatsAppUrl(inquiry) {
-  const text = [
-    "Hello, I am interested in your export products. Please share details.",
-    "",
-    `Name: ${inquiry.name}`,
-    `Country: ${inquiry.country}`,
-    `Product: ${inquiry.product}`,
-    `Quantity: ${inquiry.quantity}`,
-    `Phone: ${inquiry.phone}`,
-    `Email: ${inquiry.email}`,
-    `Message: ${inquiry.message}`
-  ].join("\n");
-
-  return `https://wa.me/${INQUIRY_CONFIG.whatsappNumber}?text=${encodeURIComponent(text)}`;
-}
-
-function setFormBusy(button, isBusy) {
+function setButtonBusy(button, isBusy) {
   if (!button) return;
+
+  if (!button.dataset.originalLabel) {
+    button.dataset.originalLabel = button.textContent;
+  }
+
   button.disabled = isBusy;
-  button.textContent = isBusy ? "Sending..." : button.dataset.defaultLabel || "Submit Inquiry";
+  button.textContent = isBusy ? (button.dataset.loadingLabel || "Submitting...") : button.dataset.originalLabel;
 }
 
-function setStatus(target, message, isError) {
-  if (!target) return;
+function setStatus(form, message, isError) {
+  let target = form.querySelector(".form-status");
+
+  if (!target) {
+    target = document.createElement("div");
+    target.className = "form-status";
+    target.setAttribute("aria-live", "polite");
+    form.appendChild(target);
+  }
+
   target.textContent = message;
   target.className = `form-status ${isError ? "error" : "success"}`;
 }
