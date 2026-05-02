@@ -1,5 +1,4 @@
 const INQUIRY_CONFIG = {
-  sheetsEndpoint: "https://script.google.com/macros/s/AKfycbzdWZxwHb6A-3HEFMugfIjZLAFexwhzqqMFu6r_tgNo3tyShxgdtGsPRUrkUIFMD0TkPA/exec",
   thankYouEmailEndpoint: "/api/send-thank-you-email",
   successMessage: "Thank you! Your inquiry has been submitted successfully.",
   errorMessage: "Something went wrong. Please try again."
@@ -86,7 +85,7 @@ function initStandaloneInquiryPopup() {
         <h2 id="inquiry-popup-title">Tell us what you want to import</h2>
         <span>Share your requirement and our team will review it for coffee, spices, fruits, vegetables, coconut, or custom sourcing.</span>
       </div>
-      <form class="inquiry-popup__form" data-inquiry-form data-popup-form novalidate>
+      <form id="inquiryForm" class="inquiry-popup__form" data-inquiry-form data-popup-form novalidate>
         <input type="text" name="website" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true">
         <input type="hidden" name="formStartedAt" value="">
         <input type="hidden" name="source" value="Standalone inquiry popup">
@@ -141,96 +140,84 @@ function initStandaloneInquiryPopup() {
 }
 
 function initInquiryForms() {
-  const forms = document.querySelectorAll("form");
+  const form = document.getElementById('inquiryForm');
+  if (!form) {
+    console.log('[Inquiry Form] inquiryForm not found');
+    return;
+  }
 
-  forms.forEach((form) => {
-    let startedAt = form.querySelector('[name="formStartedAt"]');
-    if (!startedAt) {
-      startedAt = document.createElement("input");
-      startedAt.type = "hidden";
-      startedAt.name = "formStartedAt";
-      form.prepend(startedAt);
-    }
+  let startedAt = form.querySelector('[name="formStartedAt"]');
+  if (!startedAt) {
+    startedAt = document.createElement("input");
+    startedAt.type = "hidden";
+    startedAt.name = "formStartedAt";
+    form.prepend(startedAt);
+  }
 
-    if (!form.querySelector('[name="website"]')) {
-      const honeypot = document.createElement("input");
-      honeypot.type = "text";
-      honeypot.name = "website";
-      honeypot.className = "honeypot";
-      honeypot.tabIndex = -1;
-      honeypot.autocomplete = "off";
-      honeypot.setAttribute("aria-hidden", "true");
-      form.prepend(honeypot);
-    }
+  if (!form.querySelector('[name="website"]')) {
+    const honeypot = document.createElement("input");
+    honeypot.type = "text";
+    honeypot.name = "website";
+    honeypot.className = "honeypot";
+    honeypot.tabIndex = -1;
+    honeypot.autocomplete = "off";
+    honeypot.setAttribute("aria-hidden", "true");
+    form.prepend(honeypot);
+  }
 
-    if (startedAt) {
-      startedAt.value = String(Date.now());
-    }
+  startedAt.value = String(Date.now());
 
-    form.querySelectorAll("input, select, textarea").forEach((field) => {
-      field.addEventListener("input", () => {
-        clearFieldError(form, field.name);
-        setStatus(form, "", false);
-      });
-    });
-
-    form.addEventListener("submit", function (e) {
-      e.preventDefault();
-
-      const validation = validateInquiryForm(form);
-      if (!validation.valid) {
-        setStatus(form, validation.message, true);
-        return;
-      }
-
-      const submitButton = form.querySelector("[type='submit']");
-      const formData = new FormData(form);
-      const emailPayload = {
-        name: formData.get("name") || "",
-        email: formData.get("email") || ""
-      };
-
-      setButtonBusy(submitButton, true);
-      setStatus(form, "Submitting your inquiry...", false);
-
-      fetch(INQUIRY_CONFIG.sheetsEndpoint, {
-        method: "POST",
-        body: formData
-      })
-        .then((response) => response.text())
-        .then(() => sendThankYouEmail(emailPayload))
-        .then(() => {
-          form.reset();
-          setStatus(form, INQUIRY_CONFIG.successMessage, false);
-          form.dispatchEvent(new CustomEvent("inquiry:success", { bubbles: true }));
-
-          if (startedAt) {
-            startedAt.value = String(Date.now());
-          }
-        })
-        .catch(() => {
-          setStatus(form, INQUIRY_CONFIG.errorMessage, true);
-        })
-        .finally(() => {
-          setButtonBusy(submitButton, false);
-        });
+  form.querySelectorAll("input, select, textarea").forEach((field) => {
+    field.addEventListener("input", () => {
+      clearFieldError(form, field.name);
+      setStatus(form, "", false);
     });
   });
-}
 
-function sendThankYouEmail(payload) {
-  return fetch(INQUIRY_CONFIG.thankYouEmailEndpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(payload)
-  }).then((response) => {
-    if (!response.ok) {
-      throw new Error("Thank-you email failed");
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    console.log('[Inquiry Form] Submit clicked');
+
+    const validation = validateInquiryForm(this);
+    if (!validation.valid) {
+      setStatus(this, validation.message, true);
+      return;
     }
 
-    return response.json();
+    const submitButton = this.querySelector("[type='submit']");
+    setButtonBusy(submitButton, true);
+    setStatus(this, "Submitting your inquiry...", false);
+
+    try {
+      const formData = Object.fromEntries(new FormData(this).entries());
+      console.log('[Inquiry Form] Sending to API', formData);
+
+      const response = await fetch('/api/send-thank-you-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+
+      console.log('[Inquiry Form] API response status:', response.status);
+
+      const result = await response.json();
+      console.log('[Inquiry Form] API result:', result);
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Submission failed');
+      }
+
+      alert('Thank you! Your inquiry has been submitted successfully.');
+      this.reset();
+      setStatus(this, INQUIRY_CONFIG.successMessage, false);
+      this.dispatchEvent(new CustomEvent("inquiry:success", { bubbles: true }));
+      startedAt.value = String(Date.now());
+    } catch (error) {
+      console.log('[Inquiry Form] API request failed', { message: error.message });
+      setStatus(this, error.message || INQUIRY_CONFIG.errorMessage, true);
+    } finally {
+      setButtonBusy(submitButton, false);
+    }
   });
 }
 

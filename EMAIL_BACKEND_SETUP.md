@@ -16,7 +16,8 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
 SMTP_USER=info@aarmoonsplit.com
 SMTP_PASS=YOUR_APP_PASSWORD_HERE
-ALLOWED_ORIGIN=https://aarmoonspirit.com
+ALLOWED_ORIGIN=https://aarmoonspirit.com,https://aar-moon-split-tradres.vercel.app
+GOOGLE_SHEET_WEB_APP_URL=https://script.google.com/macros/s/AKfycbzdWZxwHb6A-3HEFMugfIjZLAFexwhzqqMFu6r_tgNo3tyShxgdtGsPRUrkUIFMD0TkPA/exec
 ```
 
 Do not put `SMTP_PASS` in frontend JavaScript, HTML, or CSS.
@@ -28,4 +29,4 @@ Do not put `SMTP_PASS` in frontend JavaScript, HTML, or CSS.
 3. Install dependencies during deployment from `package.json`.
 4. Confirm the production domain matches `ALLOWED_ORIGIN`.
 
-If your final domain is different, update `ALLOWED_ORIGIN` before testing the live form.
+If your final domain is different, update `ALLOWED_ORIGIN` before testing the live form. Separate multiple allowed origins with commas.
