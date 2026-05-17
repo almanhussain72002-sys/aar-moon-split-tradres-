@@ -106,15 +106,18 @@ async function sendToGoogleSheet(normalizedData) {
 
   if (!responseText) return {};
 
+  let parsed;
   try {
-    const parsed = JSON.parse(responseText);
-    if (parsed.ok === false) {
-      throw new Error(parsed.message || "Google Sheet request failed");
-    }
-    return parsed;
+    parsed = JSON.parse(responseText);
   } catch (error) {
     return { raw: responseText };
   }
+
+  if (parsed.ok === false) {
+    throw new Error(parsed.message || "Google Sheet request failed");
+  }
+
+  return parsed;
 }
 
 async function sendCustomerEmail(normalizedData) {
