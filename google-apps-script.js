@@ -1,4 +1,15 @@
 const SHEET_NAME = "Inquiries";
+const HEADERS = [
+  "Timestamp",
+  "Name",
+  "Company",
+  "Email",
+  "Phone",
+  "Country",
+  "Product",
+  "Quantity",
+  "Message"
+];
 
 function doPost(e) {
   try {
@@ -45,17 +56,16 @@ function getInquirySheet_() {
   }
 
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow([
-      "Timestamp",
-      "Name",
-      "Company",
-      "Email",
-      "Phone",
-      "Country",
-      "Product",
-      "Quantity",
-      "Message"
-    ]);
+    sheet.appendRow(HEADERS);
+  } else {
+    const currentHeaders = sheet.getRange(1, 1, 1, HEADERS.length).getValues()[0];
+    const needsHeaderUpdate = HEADERS.some(function(header, index) {
+      return currentHeaders[index] !== header;
+    });
+
+    if (needsHeaderUpdate) {
+      sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
+    }
   }
 
   return sheet;
